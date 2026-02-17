@@ -235,6 +235,211 @@ def check_and_alert(metric_type, current_value, threshold):
             current_value=current_value,      # Actual current percentage
             threshold=threshold               # Threshold that was exceeded
         )
+        
+        # Step 8: Trigger automatic remediation if enabled
+        # This allows system to self-heal without manual intervention
+        trigger_auto_remediation(metric_type, current_value, threshold)
+
+# ============================================================================
+# AUTO-REMEDIATION FUNCTIONS - Self-Healing System
+# ============================================================================
+# These functions automatically take corrective actions when metrics exceed thresholds
+# This is industry best practice used by Netflix, Google, AWS for self-healing infrastructure
+
+# Auto-remediation configuration
+AUTO_REMEDIATION_CONFIG = {
+    'enabled': True,  # Enable/Disable automatic remediation
+    'cpu_action': 'kill_chrome',  # Action when CPU > 90%: 'warn', 'kill_chrome', 'kill_python'
+    'memory_action': 'clear_cache',  # Action when Memory > 85%: 'warn', 'clear_cache', 'restart_app'
+    'disk_action': 'clear_temp',  # Action when Disk > 90%: 'warn', 'clear_temp', 'delete_old_logs'
+}
+
+def trigger_auto_remediation(metric_type, current_value, threshold):
+    """
+    FUNCTION: trigger_auto_remediation
+    PURPOSE: Automatically take corrective actions when metrics exceed thresholds
+    
+    LOGIC: Self-healing concept - system fixes itself without human intervention
+    Industry Examples:
+      - Netflix: Auto-scale when CPU > 85%
+      - Google: Auto-restart service when memory > 90%
+      - AWS: Auto-failover when primary server down
+    
+    PARAMETERS:
+      metric_type: 'cpu', 'memory', or 'disk'
+      current_value: Current percentage
+      threshold: Configured threshold
+    """
+    
+    # Step 1: Check if auto-remediation is enabled
+    if not AUTO_REMEDIATION_CONFIG['enabled']:
+        return
+    
+    # Step 2: Determine what action to take based on metric type
+    if metric_type == 'cpu':
+        action = AUTO_REMEDIATION_CONFIG['cpu_action']
+        remediate_cpu(action, current_value)
+        
+    elif metric_type == 'memory':
+        action = AUTO_REMEDIATION_CONFIG['memory_action']
+        remediate_memory(action, current_value)
+        
+    elif metric_type == 'disk':
+        action = AUTO_REMEDIATION_CONFIG['disk_action']
+        remediate_disk(action, current_value)
+
+def remediate_cpu(action, current_value):
+    """
+    FUNCTION: remediate_cpu
+    PURPOSE: Automatic CPU optimization actions
+    
+    ACTIONS:
+      - 'warn': Only log warning (no action)
+      - 'kill_chrome': Terminate Chrome browser (memory hog)
+      - 'kill_python': Terminate Python scripts (heavy processing)
+    """
+    
+    print(f"🤖 AUTO-REMEDIATION: CPU is {current_value}% - Taking action: {action}")
+    
+    if action == 'warn':
+        print("⚠️ Warning: CPU exceeding threshold - Manual intervention required")
+        
+    elif action == 'kill_chrome':
+        try:
+            # Kill Chrome process (safest option)
+            # Chrome uses 30-50% CPU typically (tab-heavy)
+            os.system("taskkill /IM chrome.exe /F")
+            print("✅ AUTO-REMEDIATION: Chrome terminated (restart will launch it)")
+            send_remediation_alert('cpu', 'Chrome process terminated', 'success')
+        except Exception as e:
+            print(f"❌ Failed to terminate Chrome: {e}")
+            
+    elif action == 'kill_python':
+        try:
+            # Kill Python processes (be careful!)
+            # Only use if you know Python script is hanging
+            os.system("taskkill /IM python.exe /F")
+            print("✅ AUTO-REMEDIATION: Python process terminated")
+            send_remediation_alert('cpu', 'Python process terminated', 'warning')
+        except Exception as e:
+            print(f"❌ Failed to terminate Python: {e}")
+
+def remediate_memory(action, current_value):
+    """
+    FUNCTION: remediate_memory
+    PURPOSE: Automatic memory optimization actions
+    
+    ACTIONS:
+      - 'warn': Only log warning
+      - 'clear_cache': Clear application caches (Windows)
+      - 'restart_app': Restart heavy applications
+    """
+    
+    print(f"🤖 AUTO-REMEDIATION: Memory is {current_value}% - Taking action: {action}")
+    
+    if action == 'warn':
+        print("⚠️ Warning: Memory exceeding threshold - Manual intervention required")
+        
+    elif action == 'clear_cache':
+        try:
+            # Clear Windows temporary files
+            # Safe operation - Windows recreates them as needed
+            os.system("del %temp%\\* /Q /F")
+            print("✅ AUTO-REMEDIATION: Temporary files cleared (safe operation)")
+            send_remediation_alert('memory', 'Temp files cleared', 'success')
+        except Exception as e:
+            print(f"⚠️ Cache clearing had issues: {e}")
+            
+    elif action == 'restart_app':
+        print("⚠️ CAUTION: Application restart recommended (manual intervention)")
+        send_remediation_alert('memory', 'Recommend application restart', 'warning')
+
+def remediate_disk(action, current_value):
+    """
+    FUNCTION: remediate_disk
+    PURPOSE: Automatic disk space cleanup actions
+    
+    ACTIONS:
+      - 'warn': Only log warning
+      - 'clear_temp': Delete temporary files
+      - 'delete_old_logs': Delete log files older than 30 days
+    """
+    
+    print(f"🤖 AUTO-REMEDIATION: Disk is {current_value}% - Taking action: {action}")
+    
+    if action == 'warn':
+        print("⚠️ Warning: Disk space low - Manual intervention required")
+        
+    elif action == 'clear_temp':
+        try:
+            # Windows Temp folder cleanup
+            temp_dir = os.path.expandvars('%TEMP%')
+            cleaned_size = 0
+            
+            for filename in os.listdir(temp_dir):
+                filepath = os.path.join(temp_dir, filename)
+                try:
+                    if os.path.isfile(filepath):
+                        os.unlink(filepath)
+                        cleaned_size += os.path.getsize(filepath)
+                except Exception as e:
+                    pass  # Skip files in use
+            
+            print(f"✅ AUTO-REMEDIATION: Temp files cleared (~{cleaned_size/1024/1024:.1f} MB)")
+            send_remediation_alert('disk', 'Temporary files cleared', 'success')
+            
+        except Exception as e:
+            print(f"❌ Failed to clear temp: {e}")
+            
+    elif action == 'delete_old_logs':
+        try:
+            # Delete log files older than 30 days
+            import time
+            import glob
+            
+            current_time = time.time()
+            thirty_days_ago = current_time - (30 * 24 * 60 * 60)
+            deleted_count = 0
+            
+            # Target common log locations
+            log_patterns = [
+                os.path.expandvars('%APPDATA%\\*\\logs\\*.log'),
+                os.path.expandvars('%LOCALAPPDATA%\\*\\logs\\*.log'),
+            ]
+            
+            for pattern in log_patterns:
+                for logfile in glob.glob(pattern):
+                    if os.path.getmtime(logfile) < thirty_days_ago:
+                        try:
+                            os.remove(logfile)
+                            deleted_count += 1
+                        except:
+                            pass
+            
+            print(f"✅ AUTO-REMEDIATION: {deleted_count} old log files deleted")
+            send_remediation_alert('disk', f'{deleted_count} old logs deleted', 'success')
+            
+        except Exception as e:
+            print(f"⚠️ Log cleanup had issues: {e}")
+
+def send_remediation_alert(metric_type, action_details, status):
+    """
+    FUNCTION: send_remediation_alert
+    PURPOSE: Notify team about auto-remediation actions taken
+    
+    PARAMETERS:
+      metric_type: 'cpu', 'memory', or 'disk'
+      action_details: What action was taken
+      status: 'success', 'warning', or 'failed'
+    """
+    
+    print(f"📧 Sending remediation notification: {metric_type} - {action_details} ({status})")
+    
+    # Example: Send to Slack or database
+    # For now, just log to console
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    log_entry = f"[{timestamp}] {metric_type.upper()}: {action_details} - Status: {status}"
+    print(log_entry)
 
 def get_system_stats():
     """
